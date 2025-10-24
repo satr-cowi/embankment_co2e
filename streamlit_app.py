@@ -11,7 +11,7 @@ slope_grad = st.number_input("Slope Gradient")
 ECF_soil = st.number_input("Soil ECF")
 
 
-h = np.linspace(0,2*height,100)
+h = np.linspace(0,2*height,101)
 carb = carbon_calculation.calc_carbon_per_FA(h,path_width,slope_grad,ECF_soil)
 
 df = pd.DataFrame({'x':h,'y':carb[:,0]})
