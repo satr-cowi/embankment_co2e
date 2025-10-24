@@ -17,5 +17,5 @@ carb = carbon_calculation.calc_carbon_per_FA(h,path_width,slope_grad,ECF_soil)
 
 df = pd.DataFrame({'x':h,'y':carb[:,0]})
 
-alt_chart = alt.Chart(df).encode(x='x',y='y')
+alt_chart = (alt.Chart(df).mark_line().encode(x='x',y='y'))
 st.altair_chart(alt_chart)
