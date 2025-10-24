@@ -1,3 +1,4 @@
+import altair as alt
 import numpy as np
 import pandas as pd
 import streamlit as st
@@ -15,4 +16,6 @@ h = np.linspace(0,2*height,101)
 carb = carbon_calculation.calc_carbon_per_FA(h,path_width,slope_grad,ECF_soil)
 
 df = pd.DataFrame({'x':h,'y':carb[:,0]})
-st.line_chart(df,x='x',y='y')
+
+alt_chart = alt.Chart(df).encode(x='x',y='y')
+st.altair_chart(alt_chart)
