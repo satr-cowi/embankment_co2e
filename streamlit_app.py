@@ -23,5 +23,5 @@ df = pd.DataFrame({'h':h,
 
 alt_chart = (alt.Chart(df).mark_line().encode(x='h',y='Unreinforced') + 
              alt.Chart(df).mark_line().encode(x='h',y='geo_mid') +
-             alt.Chart(df).mark_area().encode(x='h',y='geo_low',y2='geo_high'))
+             alt.Chart(df).mark_area(opacity=0.5).encode(x='h',y='geo_low',y2='geo_high'))
 st.altair_chart(alt_chart)
