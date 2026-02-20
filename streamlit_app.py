@@ -23,7 +23,7 @@ references.subheader("References")
 
 height = inputs.number_input("Embankment Height, h (m)", value=5.0, step=0.5)
 path_width = inputs.number_input("Path Width (m)", value=3.5, step=0.5)
-inputs.image(r"images/embankment_structure.jpg")
+inputs.image(r"images/embankment_structure.png")
 distance = inputs.number_input("Soil Transportation Distance (km)", value=50)
 
 more_in = inputs.expander("More Options")
