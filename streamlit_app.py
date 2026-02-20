@@ -1,12 +1,18 @@
+"""
+The main web app interface.
+"""
+
 import altair as alt
 import numpy as np
 import pandas as pd
 import streamlit as st
 import carbon_calculation
 
+__version__ = 0.1
+
 ## Layout
 
-st.title("Embankments CO2e")
+st.title("Net Zero Bridges Group - Embankments CO2e")
 st.set_page_config(layout="wide")
 main_part = st.container()
 inputs, outputs = main_part.columns(2)
@@ -17,7 +23,7 @@ references.subheader("References")
 
 height = inputs.number_input("Embankment Height, h (m)", value=5.0, step=0.5)
 path_width = inputs.number_input("Path Width (m)", value=3.5, step=0.5)
-inputs.image(r"images/embankment_structure.png")
+inputs.image(r"images/embankment_structure.jpg")
 distance = inputs.number_input("Soil Transportation Distance (km)", value=50)
 
 more_in = inputs.expander("More Options")
@@ -69,6 +75,9 @@ references.caption(
     + "total embodied carbon compared to the transportation of the soil regardless."
 )
 
+references.markdown(f"Tool Version = {__version__}")
+references.markdown("Developed for the Net Zero Bridges Group. Author Sam Trueman (satr@cowi.com).")
+
 ## Calculation
 
 ECF_soil = carbon_calculation.calc_ECF_from_distance(
@@ -91,6 +100,8 @@ df = pd.DataFrame(
         "geo_low": carb_rein[:, 0],
         "geo_mid": carb_rein[:, 1],
         "geo_high": carb_rein[:, 2],
+        "Unre_label" : "Unreinforced Option",
+        "Rein_label" : "Reinforced Option"
     }
 )
 
@@ -101,28 +112,33 @@ actual_val = pd.DataFrame(
 ## Chart setup
 
 scorbs_vals = [250, 500, 1000, 1500, 2000]
+SCORBS_names = ["A++","A+","A","B","C"]
+
 SCORBS = pd.DataFrame(
-    {
-        "x": [0, h.max()],
-        "A++": [scorbs_vals[0], scorbs_vals[0]],
-        "A+": [scorbs_vals[1], scorbs_vals[1]],
-        "A": [scorbs_vals[2], scorbs_vals[2]],
-        "B": [scorbs_vals[3], scorbs_vals[3]],
-        "C": [scorbs_vals[4], scorbs_vals[4]],
-    }
+    {"x": [0, h.max()]}|
+    {k:[j, j] for k,j in zip(SCORBS_names,scorbs_vals)}|
+    {f"{k}_lab":k for k in SCORBS_names}
 )
 
-unre_line = alt.Chart(df).mark_line(color="red", strokeDash=(4, 4))
+# Assign line colors for chart
+char_scale = alt.Scale(domain=['Unreinforced Option','Reinforced Option']+SCORBS_names, 
+                       range=['Red','lightblue','darkgreen','green','yellow','orange'])
+
+unre_line = alt.Chart(df).mark_line(strokeDash=(4, 4))
 unre_line = unre_line.encode(
     x=alt.X("h").title("h (m)"),
     y=alt.Y("Unreinforced")
     .scale(domain=(0, df["Unreinforced"].max()))
     .title("CO2e (kgCO2e/m2)"),
+    color=alt.Color("Unre_label", scale=char_scale).title(None)
 )
 
 geo_line = alt.Chart(df, height=450).mark_area(opacity=0.5)
 geo_line = geo_line.encode(
-    x="h", y=alt.Y("geo_low").scale(domain=(0, df["geo_high"].max())), y2="geo_high"
+    x="h",
+    y=alt.Y("geo_low").scale(domain=(0, df["geo_high"].max())),
+    y2="geo_high",
+    color=alt.Color("Rein_label", scale=char_scale),
 )
 
 lim_val = pd.DataFrame({"h": h[:101], "geo_mid": df["geo_mid"][:101]})
@@ -144,17 +160,49 @@ else:
     )
     val_to_print = linear_sum
 
+scorbs_scale = alt.Scale(domain=SCORBS_names,range=['darkgreen','green','yellow','orange'])
+
 alt_chart = (
     unre_line
     + alt.Chart(df).mark_line(strokeDash=(4, 4)).encode(x="h", y="geo_mid")
     + geo_line
     + ramp_chart
-    + alt.Chart(SCORBS).mark_rule(color="darkgreen", clip=True).encode(y="A++")
-    + alt.Chart(SCORBS).mark_rule(color="green", clip=True).encode(y="A+")
-    + alt.Chart(SCORBS).mark_rule(color="yellow", clip=True).encode(y="A")
-    + alt.Chart(SCORBS).mark_rule(color="orange", clip=True).encode(y="B")
+    + alt.Chart(SCORBS).mark_rule(clip=True).encode(y="A++",color=alt.Color("A++_lab", scale=char_scale))
+    + alt.Chart(SCORBS).mark_rule(clip=True).encode(y="A+",color=alt.Color("A+_lab", scale=char_scale))
+    + alt.Chart(SCORBS).mark_rule(clip=True).encode(y="A",color=alt.Color("B_lab", scale=char_scale))
+    + alt.Chart(SCORBS).mark_rule(clip=True).encode(y="B",color=alt.Color("C_lab", scale=char_scale))
 )
 outputs.altair_chart(alt_chart)
-outputs.markdown(f"Embodied Carbon Value = **{val_to_print:.2f} kgCO2e/m2**")
+
+outputs.markdown(f"Embodied Carbon Value per FA (average reinforced soil) = **{val_to_print:.2f} kgCO2e/m2**")
 scorbs_rating = np.searchsorted(scorbs_vals, val_to_print)
 outputs.markdown(f"SCORBS rating of {SCORBS.keys()[scorbs_rating + 1]}")
+outputs.subheader("Calculated Values")
+
+if ramp == ramp_options[0]:
+    outputs.markdown(f"Soil ECF = $({processing_factor} + {distance}\\times{carbon_per_km_per_m3}) = {ECF_soil}$ kgCO2e/m3")
+    
+    outputs.markdown(f"##### Reinforced")
+    area_rein = carbon_calculation._calc_emb_area(height,path_width,slope_grad_reinforced)
+    outputs.markdown(f"Crosssectional area = ${area_rein:.2f}$ m2")
+    outputs.markdown(f"Total CO2e per m length = $({ECF_geo[1]}+{ECF_soil})\\times{area_rein:.2f} = {(ECF_geo[1]+ECF_soil)*area_rein:.2f}$ kgCO2e/m")
+    
+    outputs.markdown(f"##### Unreinforced")
+    area_unre = carbon_calculation._calc_emb_area(height,path_width,slope_grad_unreinforced)
+    outputs.markdown(f"Crosssectional area = ${area_unre:.2f}$ m2")
+    outputs.markdown(f"Total CO2e per m length = ${ECF_soil}\\times{area_unre:.2f} = {ECF_soil*area_unre:.2f}$ kgCO2e/m")
+    outputs.markdown(f"Embodied Carbon Value per FA = ${carb_unre[100,0]:.2f}$ kgCO2e/m2")
+else:
+    outputs.markdown(f"Soil ECF = $({processing_factor} + {distance}\\times{carbon_per_km_per_m3}) = {ECF_soil}$ kgCO2e/m3")
+    
+    outputs.markdown(f"Volume calculation assumes a 1:20 gradient, but value per FA is independent of slope")
+    outputs.markdown(f"##### Reinforced")
+    vol_rein = height**2*path_width/2/0.05 + height**3*slope_grad_reinforced/3/0.05
+    outputs.markdown(f"Ramp volume = ${vol_rein:.2f}$ m3")
+    outputs.markdown(f"Total CO2e = $({ECF_geo[1]}+{ECF_soil})\\times{vol_rein:.2f} = {(ECF_geo[1]+ECF_soil)*vol_rein:.0f}$ kgCO2e")
+    
+    outputs.markdown(f"##### Unreinforced")
+    vol_unre = height**2*path_width/2/0.05 + height**3*slope_grad_unreinforced/3/0.05
+    outputs.markdown(f"Ramp volume = ${vol_unre:.2f}$ m3")
+    outputs.markdown(f"Total CO2e = ${ECF_soil}\\times{vol_unre:.2f} = {ECF_soil*vol_unre:.2f}$ kgCO2e")
+    outputs.markdown(f"Embodied Carbon Value per FA = ${carb_unre[100,0]:.2f}$ kgCO2e/m2")
