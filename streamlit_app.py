@@ -180,7 +180,7 @@ outputs.markdown(f"SCORBS rating of {SCORBS.keys()[scorbs_rating + 1]}")
 outputs.subheader("Calculated Values")
 
 if ramp == ramp_options[0]:
-    outputs.markdown(f"Soil ECF = $({processing_factor} + {distance}\\times{carbon_per_km_per_m3}) = {ECF_soil}$ kgCO2e/m3")
+    outputs.markdown(f"Soil ECF = $({processing_factor} + {distance}\\times{carbon_per_km_per_m3}) = {ECF_soil:.2f}$ kgCO2e/m3")
     
     outputs.markdown(f"##### Reinforced")
     area_rein = carbon_calculation._calc_emb_area(height,path_width,slope_grad_reinforced)
